@@ -12,6 +12,7 @@ import supervisor
 
 timer = supervisor.ticks_ms()
 import time
+import os
 import board
 import terminalio
 import displayio
@@ -34,6 +35,13 @@ from adafruit_display_shapes.rect import Rect
 import gc
 import keypad
 import neopixel
+import usb_hid
+from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keycode import Keycode
+from adafruit_hid.mouse import Mouse
+from adafruit_hid.consumer_control import ConsumerControl
+from adafruit_hid.consumer_control_code import ConsumerControlCode
+
 
 # color defs
 clr_white = 0xFFFFFF  # Absolute White
@@ -44,6 +52,40 @@ sleep_timer = 0
 TIME_TO_DIM = 10000 # In whole seconds
 TIME_TO_SLEEP = 20000 # In whole seconds
 DIM_BRIGHTNESS = 0.01 # Float from 0 to 1
+
+LAYERS_FOLDER = '/layers'
+
+keyboard = Keyboard(usb_hid.devices)
+consumer_control = ConsumerControl(usb_hid.devices)
+mouse = Mouse(usb_hid.devices)
+
+class Layer:
+    def __init__(self, appdata):
+        self.name = appdata['name']
+        self.macros = appdata['macros']
+
+    def switch(self):
+        ui_layer_ind[0].text = self.name
+        for i in range(12):
+            if i < len(self.macros):
+                pixels[key_to_pixel_map(i+4)] = self.macros[i][0]
+                _labels[i//4][i%4].text = self.macros[i][1]
+            else:
+                pixels[key_to_pixel_map(i+4)] = 0
+                _labels[i//4][i%4].text = ''
+
+        keyboard.release_all()
+        consumer_control.release()
+        mouse.release_all()
+
+    def restore_led(self, key):
+        if key > 3:
+            if key-4 < len(self.macros):
+                pixels[key_to_pixel_map(key)] = self.macros[key-4][0]
+            else:
+                pixels[key_to_pixel_map(key)] = 0
+        else:
+            pixels[key_to_pixel_map(key)] = (0, 0, 0)
 
 def clamp(num, min_value, max_value):
     num = max(min(num, max_value), min_value)
@@ -135,7 +177,7 @@ ui.append(ui_background)
 ui.append(ui_macro_grid)
 ui.append(ui_volume_ind)
 ui.append(ui_layer_ind)
-ui.append(ui_layer_popup)
+#ui.append(ui_layer_popup)
 ui.append(ui_volume_popup)
 
 # -----------------------------------
@@ -307,10 +349,8 @@ ui_volume_popup[3].anchor_point = (1.0, 0.0)
 ui_volume_popup[3].anchored_position = (315, 30)
 
 ui_volume_popup[1].value = 75
-
 # -----------------------------------
 # Create sleep function
-
 task_label("Creating sleep function . . .")
 
 sleep_display = displayio.Group()
@@ -337,6 +377,33 @@ def sleep_routine():
         if display.brightness != 1 and display.root_group != ui:
             display.show(ui)
             display.brightness = 1
+
+# -----------------------------------
+# Load layers
+task_label("Loading layers . . .")
+
+layers = []
+files = os.listdir(LAYERS_FOLDER)
+files.sort()
+for filename in files:
+    if filename.endswith('.py'):
+        try:
+            module = __import__(LAYERS_FOLDER + '/' + filename[:-3])
+            layers.append(Layer(module.layer))
+        except (SyntaxError, ImportError, AttributeError, KeyError, NameError, IndexError, TypeError) as err:
+            print("ERROR in", filename)
+            import traceback
+            traceback.print_exception(err, err, err.__traceback__)
+
+if not layers:
+    ui_layer_ind[0].text = "NO LAYERS FOUND"
+
+# -----------------------------------
+# Load layers
+task_label("Populating grid . . .")
+
+layer_index = 0
+layers[layer_index].switch()
 
 # -----------------------------------
 # End boot routine
@@ -366,11 +433,21 @@ while True:
     key_event = keys.events.get()
     if key_event:
         print(key_event)
+
         if key_event.pressed:
+            if key_event.key_number <= 3:
+                if key_event.key_number == 0:
+                    consumer_control.release()
+                    consumer_control.press(ConsumerControlCode.PLAY_PAUSE)
+                    consumer_control.release()
+                if key_event.key_number == 1:
+                    display.show(ui_layer_popup)
+                if key_event.key_number == 2:
+                    display.show(ui)
             # sleep_timer = supervisor.ticks_ms()
             pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
         if key_event.released:
-            pixels[key_to_pixel_map(key_event.key_number)] = (0, 0, 0)
+            layers[layer_index].restore_led(key_event.key_number)
         # else:
         #     pixels.fill((0, 0, 0))
     # print("(" + str(supervisor.ticks_ms() - timer) + ",)") # Loop speed monitor
