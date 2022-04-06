@@ -49,9 +49,11 @@ clr_lavender = 0xB172C6  # Main UI Lavender
 clr_lavender_dark = 0x5D4266  # Darker lavender for backgrounds
 
 sleep_timer = 0
-TIME_TO_DIM = 10000 # In whole seconds
-TIME_TO_SLEEP = 20000 # In whole seconds
-DIM_BRIGHTNESS = 0.01 # Float from 0 to 1
+TIME_TO_DIM = 10000  # In whole seconds
+TIME_TO_SLEEP = 20000  # In whole seconds
+DIM_BRIGHTNESS = 0.01  # Float from 0 to 1
+
+mode = 0
 
 LAYERS_FOLDER = '/layers'
 
@@ -90,6 +92,11 @@ class Layer:
 def clamp(num, min_value, max_value):
     num = max(min(num, max_value), min_value)
     return num
+
+def collect():
+    saved = gc.mem_free()
+    gc.collect()
+    print("garbage collected, " + str(gc.mem_free()) + " bytes free, " + str(gc.mem_free() - saved) + " saved")
 
 # Release any resources currently in use for the displays
 displayio.release_displays()
@@ -156,11 +163,10 @@ def task_label(text):
     print(text)
 
 
-# change task label: boot_splash[4].text = "text . . ."
 # -----------------------------------
 # Initialize the rendering structure
 # Variables initialized in back-to-front rendering order
-
+collect()
 task_label("Initializing UI groups . . .")
 
 
@@ -182,9 +188,10 @@ ui.append(ui_volume_popup)
 
 # -----------------------------------
 # Render ui_background
+collect()
 task_label("Initializing key interface . . .")
 
-pixels = neopixel.NeoPixel(board.D25, 16, brightness=0.2)
+pixels = neopixel.NeoPixel(board.D25, 16, brightness=0.4)
 pixels.fill((0, 0, 0))  # Begin with pixels off.
 
 COLUMNS = 4
@@ -206,6 +213,7 @@ def key_to_pixel_map(key_number):
 
 # -----------------------------------
 # Render ui_background
+collect()
 task_label("Rendering background . . .")
 
 
@@ -218,6 +226,7 @@ ui_background.append(
 
 # -----------------------------------
 # Render ui_macro_grid
+collect()
 task_label("Rendering macro grid . . .")
 
 
@@ -254,6 +263,7 @@ ui_macro_grid.append(layout)
 
 # -----------------------------------
 # Render ui_volume_ind
+collect()
 task_label("Rendering mixing HUD . . .")
 
 
@@ -308,6 +318,7 @@ _vol_bars[3].value = 0
 
 # -----------------------------------
 # Render ui_layer_ind
+collect()
 task_label("Rendering layer HUD . . .")
 
 
@@ -319,10 +330,79 @@ ui_layer_ind[0].anchored_position = (320, 120)
 
 # -----------------------------------
 # Render ui_layer_popup
+collect()
 task_label("Rendering layer selection popup . . .")
 
+
+ui_layer_popup.append(
+    displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
+)  # Background matte [0]
+ui_layer_popup.append(
+    Rect(0, 0, 320, 240, fill=clr_lavender, outline=clr_white, stroke=1)
+)  # 1px white border [1]
+ui_layer_popup.append(
+    Rect(1, 113, 318, 22, fill=clr_lavender_dark, outline=clr_lavender_dark, stroke=1)
+)  # selector bar [2]
+
+ui_layer_popup_labels = displayio.Group()
+ui_layer_popup.append(ui_layer_popup_labels)  # label group [3]
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=40, text="Layer 1", color=0xC28ED2)
+)
+ui_layer_popup_labels[0].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[0].anchored_position = (160, 20)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=40, text="Layer 2", color=0xD2AADD)
+)
+ui_layer_popup_labels[1].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[1].anchored_position = (160, 45)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=50, text="Layer 3", color=0xE1C6E8)
+)
+ui_layer_popup_labels[2].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[2].anchored_position = (160, 70)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=60, text="Layer 4", color=0xF0E2F4)
+)
+ui_layer_popup_labels[3].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[3].anchored_position = (160, 95)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=70, text="Layer 5", color=clr_white)
+)
+ui_layer_popup_labels[4].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[4].anchored_position = (160, 120)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=80, text="Layer 6", color=0xF0E2F4)
+)
+ui_layer_popup_labels[5].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[5].anchored_position = (160, 145)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=80, text="Layer 7", color=0xE1C6E8)
+)
+ui_layer_popup_labels[6].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[6].anchored_position = (160, 170)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=80, text="Layer 8", color=0xD2AADD)
+)
+ui_layer_popup_labels[7].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[7].anchored_position = (160, 195)
+
+ui_layer_popup_labels.append(
+    label.Label(terminalio.FONT, scale=2, x=240, y=80, text="Layer 9", color=0xC28ED2)
+)
+ui_layer_popup_labels[8].anchor_point = (0.5, 0.5)
+ui_layer_popup_labels[8].anchored_position = (160, 220)
 # -----------------------------------
 # Render ui_volume_popup
+collect()
 task_label("Rendering volume popup . . .")
 
 
@@ -351,6 +431,7 @@ ui_volume_popup[3].anchored_position = (315, 30)
 ui_volume_popup[1].value = 75
 # -----------------------------------
 # Create sleep function
+collect()
 task_label("Creating sleep function . . .")
 
 sleep_display = displayio.Group()
@@ -380,6 +461,7 @@ def sleep_routine():
 
 # -----------------------------------
 # Load layers
+collect()
 task_label("Loading layers . . .")
 
 layers = []
@@ -400,11 +482,11 @@ if not layers:
 
 # -----------------------------------
 # Load layers
+collect()
 task_label("Populating grid . . .")
 
 layer_index = 0
 layers[layer_index].switch()
-
 # -----------------------------------
 # End boot routine
 
@@ -416,8 +498,7 @@ time.sleep(2)
 display.show(ui)
 
 del boot_splash
-gc.collect()
-print("garbage collected, {} bytes free".format(str(gc.mem_free())))
+collect()
 
 # -----------------------------------
 # Post boot activities
@@ -428,28 +509,53 @@ print("garbage collected, {} bytes free".format(str(gc.mem_free())))
 ui_volume_popup.y = -60
 
 while True:
-    # sleep_routine()
+    if mode == 0:  # Normal UI
+        key_event = keys.events.get()
+        if key_event:
+            print(key_event)
 
-    key_event = keys.events.get()
-    if key_event:
-        print(key_event)
+            if key_event.pressed:
+                if key_event.key_number <= 3:
+                    if key_event.key_number == 0:  # Back
+                        consumer_control.release()
+                        consumer_control.press(ConsumerControlCode.SCAN_PREVIOUS_TRACK)
+                        consumer_control.release()
+                    if key_event.key_number == 1:  # Play/Pause
+                        consumer_control.release()
+                        consumer_control.press(ConsumerControlCode.PLAY_PAUSE)
+                        consumer_control.release()
+                    if key_event.key_number == 2:  # Forward
+                        consumer_control.release()
+                        consumer_control.press(ConsumerControlCode.SCAN_PREVIOUS_TRACK)
+                        consumer_control.release()
+                    if key_event.key_number == 3:  # Modifier
+                        display.show(ui_layer_popup)
+                        mode = 1
 
-        if key_event.pressed:
-            if key_event.key_number <= 3:
-                if key_event.key_number == 0:
-                    consumer_control.release()
-                    consumer_control.press(ConsumerControlCode.PLAY_PAUSE)
-                    consumer_control.release()
-                if key_event.key_number == 1:
-                    display.show(ui_layer_popup)
-                if key_event.key_number == 2:
-                    display.show(ui)
-            # sleep_timer = supervisor.ticks_ms()
-            pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
-        if key_event.released:
-            layers[layer_index].restore_led(key_event.key_number)
-        # else:
-        #     pixels.fill((0, 0, 0))
-    # print("(" + str(supervisor.ticks_ms() - timer) + ",)") # Loop speed monitor
-    # timer = supervisor.ticks_ms() # Loop speed monitor
+                pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
+            if key_event.released:
+                layers[layer_index].restore_led(key_event.key_number)
+
+    if mode == 1:
+        key_event = keys.events.get()
+        if key_event:
+            print(key_event)
+
+            if key_event.pressed:
+                if key_event.key_number <= 3:
+                    if key_event.key_number == 0:  # Layer Back
+                        pass
+                    if key_event.key_number == 1:  # Null
+                        pass
+                    if key_event.key_number == 2:  # Layer Forward
+                        pass
+                    if key_event.key_number == 3:  # Modifier
+                        pass
+                pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
+            if key_event.released:
+                if key_event.key_number <= 3:
+                    if key_event.key_number == 3:
+                        display.show(ui)
+                        mode = 0
+                layers[layer_index].restore_led(key_event.key_number)
     pass
