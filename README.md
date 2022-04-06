@@ -1,6 +1,7 @@
-# lavenderpad
+# Lavenderpad 
+### A DIY programmable macropad & hardware volume mixer
 
-Lavenderpad is my project to create a fully custom programmable macropad with a few extra goals.
+*Lavenderpad* is my project to create a fully custom programmable macropad with a few extra goals.
 
 ### 1: Goals
 1. Individual macro profiles, called Layers, must be loaded from a human-readable, and more importantly human-writable, file.
@@ -16,18 +17,18 @@ Lavenderpad is my project to create a fully custom programmable macropad with a 
 As someone who frankly has little to no idea what they are doing, much of this project's code is derived or copied from various other open-source projects.
 
 #### 2.1: Macros
-The macro handling is derived almost entirely from Phillip Burgess' [MACROPAD Hotkeys](https://learn.adafruit.com/macropad-hotkeys), a macropad implementation designed to work on Adafruit's MacroPad RP2040 board.
+The macro handling is derived almost entirely from Phillip Burgess' [*MACROPAD Hotkeys*](https://learn.adafruit.com/macropad-hotkeys), a macropad implementation designed to work on Adafruit's *MacroPad RP2040* board.
 
-Other inspirations include Ken Baskett's [App Pad](https://github.com/kbaskett248/adafruit_macropad), and John Ellis' [Macropad Hotkeys II](https://github.com/deckerego/Macropad_Hotkeys), both forks of the original MACROPAD Hotkeys.
+Other inspirations include Ken Baskett's [*App Pad*](https://github.com/kbaskett248/adafruit_macropad), and John Ellis' [*Macropad Hotkeys II*](https://github.com/deckerego/Macropad_Hotkeys), both forks of the original *MACROPAD Hotkeys*.
 
 #### 2.2: Volume Control
-Volume control handling on the peripheral side will be my own code, outputting data through USB Serial that is interpreted by a host-side app, Brent Claessens' [fork](https://github.com/YaMoef/deej) of the original [Deej](https://github.com/omriharel/deej) host side app. Deej is an open-source project for creating a physical potentiometer-based mixer for the Windows digital mixer. Brent Claeseens modified the original host app to accept a 0-100 integer for each channel and directly apply that to the corresponding digital mixer channel, rather than Deej's host-side potentiometer value mapping. This makes it perfect for client-side volume management using a rotary encoder interface.
+Volume control handling on the peripheral side will be my own code, outputting data through USB Serial that is interpreted by a host-side app, Brent Claessens' [fork](https://github.com/YaMoef/deej) of the original [*Deej*](https://github.com/omriharel/deej) host side app. *Deej* is an open-source project for creating a physical potentiometer-based mixer for the Windows digital mixer. Brent Claeseens modified the original host app to accept a 0-100 integer for each channel and directly apply that to the corresponding digital mixer channel, rather than *Deej*'s host-side potentiometer value mapping. This makes it perfect for client-side volume management using a rotary encoder interface.
 
 #### 2.3: Physical Device
 The current protype consists of breadboard mounted components. As per Goal 8, I intend to create a 3D-printed case for the device. The design is not finalized, but I am keeping in mind a few design considerations:
-1. The frame of the device ought to match that of my Keychron C2 keyboard, such that if I placed them side to side, the macropad would seem like part of the original keyboard.
+1. The frame of the device ought to match that of my *Keychron C2* keyboard, such that if I placed them side to side, the macropad would seem like part of the original keyboard.
 2. The screen must be canted toward the user, as the screen may be otherwise obscured by keycaps or knobs, or simply a poor viewing angle (TFTs do not have great viewing angles, at least compared to IPS panels.)
-3. The USB-C port of the Feather RP2040 must be accessible from the back of the device for interfacing.
+3. The USB-C port of the *Feather RP2040* must be accessible from the back of the device for interfacing.
 4. A hard-wired reset button (Pulling the RST pin to GND) must be accessible without taking apart the device.
 
 ### 3: Material Cost
