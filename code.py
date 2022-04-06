@@ -98,6 +98,27 @@ def collect():
     gc.collect()
     print("garbage collected, " + str(gc.mem_free()) + " bytes free, " + str(gc.mem_free() - saved) + " saved")
 
+modes = {
+    "main": 0,
+    "layersel": 1,
+    "dim": 2,
+    "sleep": 3
+}
+
+def stateShiftTo(to):
+    global mode
+
+    if to == "main":
+        display.show(ui)
+    if to == "layersel":
+        updateLayerList(layer_selector)
+        display.show(ui_layer_popup)
+
+    if to == "dim":
+        pass
+    if to == "sleep":
+        pass
+    mode = modes[to]
 # Release any resources currently in use for the displays
 displayio.release_displays()
 
@@ -238,6 +259,7 @@ layout = GridLayout(
     grid_size=(4, 3),
     cell_padding=4,
     divider_lines=True,  # divider lines around every cell
+    cell_anchor_point=(0.5,0.5)
 )
 
 _labels = []
@@ -400,6 +422,16 @@ ui_layer_popup_labels.append(
 )
 ui_layer_popup_labels[8].anchor_point = (0.5, 0.5)
 ui_layer_popup_labels[8].anchored_position = (160, 220)
+
+def updateLayerList(selector):
+    global ui_layer_popup_labels
+    i = -4
+    for x in range(len(ui_layer_popup_labels)):
+        if((layer_selector + i) in range(len(layers))):
+            ui_layer_popup_labels[x].text = layers[layer_selector + i].name
+        else:
+            ui_layer_popup_labels[x].text = ""
+        i += 1
 # -----------------------------------
 # Render ui_volume_popup
 collect()
@@ -486,6 +518,7 @@ collect()
 task_label("Populating grid . . .")
 
 layer_index = 0
+layer_selector = 0
 layers[layer_index].switch()
 # -----------------------------------
 # End boot routine
@@ -509,10 +542,10 @@ collect()
 ui_volume_popup.y = -60
 
 while True:
-    if mode == 0:  # Normal UI
+    if mode == modes["main"]:  # Normal UI
         key_event = keys.events.get()
         if key_event:
-            print(key_event)
+            print("mode: " + str(mode) + ", key event: " + str(key_event))
 
             if key_event.pressed:
                 if key_event.key_number <= 3:
@@ -529,33 +562,38 @@ while True:
                         consumer_control.press(ConsumerControlCode.SCAN_PREVIOUS_TRACK)
                         consumer_control.release()
                     if key_event.key_number == 3:  # Modifier
-                        display.show(ui_layer_popup)
-                        mode = 1
+                        stateShiftTo("layersel")
 
                 pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
             if key_event.released:
                 layers[layer_index].restore_led(key_event.key_number)
 
-    if mode == 1:
+    if mode == modes["layersel"]:
         key_event = keys.events.get()
         if key_event:
-            print(key_event)
+            print("mode: " + str(mode) + ", key event: " + str(key_event))
 
             if key_event.pressed:
                 if key_event.key_number <= 3:
                     if key_event.key_number == 0:  # Layer Back
-                        pass
+                        layer_selector = clamp((layer_selector - 1), 0, (len(layers)-1))
+                        print("layer selector: " + str(layer_selector))
+                        updateLayerList(layer_selector)
                     if key_event.key_number == 1:  # Null
                         pass
                     if key_event.key_number == 2:  # Layer Forward
-                        pass
+                        layer_selector = clamp((layer_selector + 1), 0, (len(layers)-1))
+                        print("layer selector: " + str(layer_selector))
+                        updateLayerList(layer_selector)
                     if key_event.key_number == 3:  # Modifier
                         pass
                 pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
+
             if key_event.released:
                 if key_event.key_number <= 3:
                     if key_event.key_number == 3:
-                        display.show(ui)
-                        mode = 0
+                        layer_index = layer_selector
+                        layers[layer_index].switch()
+                        stateShiftTo("main")
                 layers[layer_index].restore_led(key_event.key_number)
     pass
