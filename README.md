@@ -1,7 +1,7 @@
 # Lavenderpad 
-### A DIY programmable macropad & hardware volume mixer
+### A DIY programmable macropad & physical volume mixer
 
-*Lavenderpad* is my project to create a fully custom programmable macropad with a few extra goals.
+*Lavenderpad* is my project to create a fully custom programmable macropad and physical volume mixer.
 
 ### 1: Goals
 1. Individual macro profiles, called Layers, must be loaded from a human-readable, and more importantly human-writable, file.
