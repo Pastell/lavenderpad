@@ -37,6 +37,8 @@ import keypad
 import neopixel
 import usb_hid
 from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keyboard_layout_base import KeyboardLayoutBase
+from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 from adafruit_hid.consumer_control import ConsumerControl
@@ -47,6 +49,7 @@ from adafruit_hid.consumer_control_code import ConsumerControlCode
 clr_white = 0xFFFFFF  # Absolute White
 clr_lavender = 0xB172C6  # Main UI Lavender
 clr_lavender_dark = 0x5D4266  # Darker lavender for backgrounds
+clr_red = 0xB70C00
 
 sleep_timer = 0
 TIME_TO_DIM = 10000  # In whole seconds
@@ -58,6 +61,7 @@ mode = 0
 LAYERS_FOLDER = '/layers'
 
 keyboard = Keyboard(usb_hid.devices)
+keyboard_layout = KeyboardLayoutUS(keyboard)
 consumer_control = ConsumerControl(usb_hid.devices)
 mouse = Mouse(usb_hid.devices)
 
@@ -119,6 +123,27 @@ def stateShiftTo(to):
     if to == "sleep":
         pass
     mode = modes[to]
+
+def loadError(message):
+    global task_label
+    global display
+    global ui_volume_popup
+    global boot_splash
+
+    task_label("Critical Error! (x_x#): \n" + message)
+    time.sleep(2)
+
+    display.show(ui)
+    del boot_splash
+    collect()
+    try:
+        ui_volume_popup.y = -60
+    except:
+        pass
+
+    while True:
+        pass
+
 # Release any resources currently in use for the displays
 displayio.release_displays()
 
@@ -144,9 +169,10 @@ boot_splash = displayio.Group()
 display.show(boot_splash)
 
 # Draw lavender background matte
-color_bitmap = displayio.Bitmap(320, 240, 1)
-color_palette = displayio.Palette(1)
+color_bitmap = displayio.Bitmap(320, 240, 2)
+color_palette = displayio.Palette(2)
 color_palette[0] = clr_lavender
+color_palette[1] = clr_red
 
 splash_matte = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 boot_splash.append(splash_matte)  # [0]
@@ -204,7 +230,6 @@ ui.append(ui_background)
 ui.append(ui_macro_grid)
 ui.append(ui_volume_ind)
 ui.append(ui_layer_ind)
-#ui.append(ui_layer_popup)
 ui.append(ui_volume_popup)
 
 # -----------------------------------
@@ -511,6 +536,21 @@ for filename in files:
 
 if not layers:
     ui_layer_ind[0].text = "NO LAYERS FOUND"
+    print("ERR: NO LAYERS FOUND\nNo layers present in @/layers/, add layer files by entering Edit Mode. Reset the device and hold the Mod key.")
+    _labels[0][0].text = "Add la"
+    _labels[0][1].text = "yers b"
+    _labels[0][2].text = "y ente"
+    _labels[0][3].text = "ring  "
+    _labels[1][0].text = "Edit M"
+    _labels[1][1].text = "ode. H"
+    _labels[1][2].text = "old Mo"
+    _labels[1][3].text = "d key "
+    _labels[2][0].text = "while "
+    _labels[2][1].text = "the de"
+    _labels[2][2].text = "vice b"
+    _labels[2][3].text = "oots. "
+
+    loadError("NO LAYERS FOUND")
 
 # -----------------------------------
 # Load layers
@@ -565,7 +605,49 @@ while True:
                         stateShiftTo("layersel")
 
                 pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
+                if key_event.key_number - 4 >= len(layers[layer_index].macros):
+                    continue
+
+                if key_event.key_number >= 4:
+                    sequence = layers[layer_index].macros[key_event.key_number - 4][2]
+                    for item in sequence:
+                        if isinstance(item, int):
+                            if item >= 0:
+                                keyboard.press(item)
+                            else:
+                                keyboard.release(-item)
+                        elif isinstance(item, float):
+                            time.sleep(item)
+                        elif isinstance(item, str):
+                            keyboard_layout.write(item)
+                        elif isinstance(item, list):
+                            for code in item:
+                                if isinstance(code, int):
+                                    consumer_control.release()
+                                    consumer_control.press(code)
+                                if isinstance(code, float):
+                                    time.sleep(code)
+                        elif isinstance(item, dict):
+                            if 'buttons' in item:
+                                if item['buttons'] >= 0:
+                                    mouse.press(item['buttons'])
+                                else:
+                                    mouse.release(-item['buttons'])
+                            mouse.move(item['x'] if 'x' in item else 0,
+                                       item['y'] if 'y' in item else 0,
+                                       item['wheel'] if 'wheel' in item else 0)
             if key_event.released:
+                if key_event.key_number >= 4:
+                    for item in sequence:
+                        if isinstance(item, int):
+                            if item >- 0:
+                                keyboard.release(item)
+                        elif isinstance(item, dict):
+                            if 'buttons' in item:
+                                if item['buttons'] >= 0:
+                                    mouse.release(item['buttons'])
+                    consumer_control.release()
+
                 layers[layer_index].restore_led(key_event.key_number)
 
     if mode == modes["layersel"]:
