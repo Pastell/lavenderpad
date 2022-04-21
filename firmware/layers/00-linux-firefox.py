@@ -21,12 +21,12 @@ layer = {                       # REQUIRED dict, must be named 'layer'
         (0x101010, 'RckRll', [Keycode.CONTROL, 't', -Keycode.CONTROL,
                            'https://youtu.be/zL19uMsnpSU',
                            Keycode.RETURN, -Keycode.RETURN, 1.0, Keycode.SPACE, -Keycode.SPACE]), # adafruit.com in a new tab
-        (0x101010, 'BrckRl', [Keycode.CONTROL, 't', -Keycode.CONTROL,
-                           'https://youtu.be/65I0HNvTDH4',
+        (0x101010, 'GrlsNt', [Keycode.CONTROL, 't', -Keycode.CONTROL,
+                           'https://cdn.discordapp.com/attachments/924557055036129311/965798630848086066/GIRLS_NIGHT.png',
                            Keycode.RETURN, -Keycode.RETURN, 1.0, Keycode.SPACE, -Keycode.SPACE]), # adafruit.com in a new tab
-        (0x101010, 'MdvlRl', [Keycode.CONTROL, 't', -Keycode.CONTROL,
-                           'https://youtu.be/YxjY_YTksKM',
-                           Keycode.RETURN, -Keycode.RETURN, 1.0, Keycode.SPACE, -Keycode.SPACE]), # adafruit.com in a new tab
+        (0x101010, 'ethan', [Keycode.CONTROL, 't', -Keycode.CONTROL,
+                           'https://ethanstruck2314.wixsite.com/kool-stuff-4-u',
+                           Keycode.RETURN, -Keycode.RETURN, 3.0, Keycode.SPACE, -Keycode.SPACE]), # adafruit.com in a new tab
         (0x000040, 'DvMode', [Keycode.F12]),     # dev mode
     ]
 }

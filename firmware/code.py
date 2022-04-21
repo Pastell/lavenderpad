@@ -43,7 +43,7 @@ from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 from adafruit_hid.consumer_control import ConsumerControl
 from adafruit_hid.consumer_control_code import ConsumerControlCode
-
+import adafruit_aw9523
 
 # color defs
 clr_white = 0xFFFFFF  # Absolute White
@@ -93,6 +93,8 @@ class Layer:
         else:
             pixels[key_to_pixel_map(key)] = (0, 0, 0)
 
+
+
 def clamp(num, min_value, max_value):
     num = max(min(num, max_value), min_value)
     return num
@@ -102,27 +104,25 @@ def collect():
     gc.collect()
     print("garbage collected, " + str(gc.mem_free()) + " bytes free, " + str(gc.mem_free() - saved) + " saved")
 
-modes = {
-    "main": 0,
-    "layersel": 1,
-    "dim": 2,
-    "sleep": 3
-}
+MODE_MAIN = 0
+MODE_LAYERSEL = 1
+MODE_DIM = 2
+MODE_SLEEP = 3
 
 def stateShiftTo(to):
     global mode
 
-    if to == "main":
+    if to == MODE_MAIN:
         display.show(ui)
-    if to == "layersel":
+    if to == MODE_LAYERSEL:
         updateLayerList(layer_selector)
         display.show(ui_layer_popup)
 
-    if to == "dim":
+    if to == MODE_DIM:
         pass
-    if to == "sleep":
+    if to == MODE_SLEEP:
         pass
-    mode = modes[to]
+    mode = to
 
 def loadError(message):
     global task_label
@@ -553,13 +553,80 @@ if not layers:
     loadError("NO LAYERS FOUND")
 
 # -----------------------------------
-# Load layers
+# Populate macro grid
 collect()
 task_label("Populating grid . . .")
 
 layer_index = 0
 layer_selector = 0
 layers[layer_index].switch()
+
+
+# -----------------------------------
+# Intialize expansion board, rotary encoders
+collect()
+task_label("Initializing expansion board . . .")
+
+i2c = board.I2C()
+aw = adafruit_aw9523.AW9523(i2c)
+
+class RotaryEncoder:
+    def __init__(self, pin_a, pin_b, start_val):
+        pin_a.direction = digitalio.Direction.INPUT
+        pin_b.direction = digitalio.Direction.INPUT
+
+        self.pin_a = pin_a
+        self.pin_b = pin_b
+
+        print("pin a")
+        print(str(pin_a.value))
+        print("pin b")
+        print(str(pin_b.value))
+
+        self.val = start_val
+        self.previous_state = self.pin_a.value
+    def read(self):
+        self.current_state = self.pin_a.value
+
+        if self.current_state != self.previous_state:  # True when pulse has occured
+            if self.pin_b.value != self.current_state:
+                self.val -= 1
+                print("Left" + str(self.val))
+            else:
+                self.val += 1
+                print("Right" + str(self.val))
+            self.val = clamp(self.val,0,100)
+            self.previous_state = self.current_state
+            return 1
+        else:
+            self.previous_state = self.current_state
+            return 0
+
+vol_channels      = [50, 50, 50, 50]
+vol_channels_mute = [0, 0, 0, 0]
+
+
+# r0_b = aw.get_pin(4)
+# r0_a = aw.get_pin(5)
+# r1_b = aw.get_pin(6)
+# r1_a = aw.get_pin(7)
+# r2_b = aw.get_pin(12)
+# r2_a = aw.get_pin(13)
+# r3_b = aw.get_pin(14)
+# r3_a = aw.get_pin(15)
+
+# print(str(r0_b))
+
+encoders = [RotaryEncoder(aw.get_pin(4),aw.get_pin(5),50),
+            RotaryEncoder(aw.get_pin(6),aw.get_pin(7),50),
+            RotaryEncoder(aw.get_pin(12),aw.get_pin(13),50),
+            RotaryEncoder(aw.get_pin(14),aw.get_pin(15),50)]
+#
+# encoders_last_pos = [encoders[0].position,
+#                      encoders[1].position,
+#                      encoders[2].position,
+#                      encoders[3].position]
+
 # -----------------------------------
 # End boot routine
 
@@ -580,9 +647,21 @@ collect()
 
 # ui_volume_popup.hidden = True
 ui_volume_popup.y = -60
-
+encoders_range = range(len(encoders))
+old_encoders = encoders
 while True:
-    if mode == modes["main"]:  # Normal UI
+    if mode == MODE_MAIN:  # Normal UI
+
+        # Encoders
+        old_encoders = encoders
+        for i in encoders_range:
+            if encoders[i].read() == 1:
+                if vol_channels_mute[i] == 0:
+                    vol_channels[i] = encoders[i].val
+                else:
+                    vol_channels[i] = 0
+                _vol_bars[i].value = vol_channels[i]
+        # Keys
         key_event = keys.events.get()
         if key_event:
             print("mode: " + str(mode) + ", key event: " + str(key_event))
@@ -602,7 +681,7 @@ while True:
                         consumer_control.press(ConsumerControlCode.SCAN_PREVIOUS_TRACK)
                         consumer_control.release()
                     if key_event.key_number == 3:  # Modifier
-                        stateShiftTo("layersel")
+                        stateShiftTo(MODE_LAYERSEL)
 
                 pixels[key_to_pixel_map(key_event.key_number)] = (170, 62, 224)
                 if key_event.key_number - 4 >= len(layers[layer_index].macros):
@@ -650,7 +729,7 @@ while True:
 
                 layers[layer_index].restore_led(key_event.key_number)
 
-    if mode == modes["layersel"]:
+    if mode == MODE_LAYERSEL:
         key_event = keys.events.get()
         if key_event:
             print("mode: " + str(mode) + ", key event: " + str(key_event))
@@ -676,6 +755,6 @@ while True:
                     if key_event.key_number == 3:
                         layer_index = layer_selector
                         layers[layer_index].switch()
-                        stateShiftTo("main")
+                        stateShiftTo(MODE_MAIN)
                 layers[layer_index].restore_led(key_event.key_number)
     pass
