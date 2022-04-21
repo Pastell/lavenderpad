@@ -1,15 +1,7 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-# SPDX-License-Identifier: MIT
-
 """
-This test will initialize the display using displayio and draw a solid green
-background, a smaller purple rectangle, and some yellow text. All drawing is done
-using native displayio modules.
-
-Pinouts are for the 2.4" TFT FeatherWing or Breakout with a Feather M4 or M0.
+LavenderPad main file
 """
 import supervisor
-
 timer = supervisor.ticks_ms()
 import time
 import os
@@ -56,44 +48,12 @@ TIME_TO_DIM = 10000  # In whole seconds
 TIME_TO_SLEEP = 20000  # In whole seconds
 DIM_BRIGHTNESS = 0.01  # Float from 0 to 1
 
-mode = 0
-
 LAYERS_FOLDER = '/layers'
 
 keyboard = Keyboard(usb_hid.devices)
 keyboard_layout = KeyboardLayoutUS(keyboard)
 consumer_control = ConsumerControl(usb_hid.devices)
 mouse = Mouse(usb_hid.devices)
-
-class Layer:
-    def __init__(self, appdata):
-        self.name = appdata['name']
-        self.macros = appdata['macros']
-
-    def switch(self):
-        ui_layer_ind[0].text = self.name
-        for i in range(12):
-            if i < len(self.macros):
-                pixels[key_to_pixel_map(i+4)] = self.macros[i][0]
-                _labels[i//4][i%4].text = self.macros[i][1]
-            else:
-                pixels[key_to_pixel_map(i+4)] = 0
-                _labels[i//4][i%4].text = ''
-
-        keyboard.release_all()
-        consumer_control.release()
-        mouse.release_all()
-
-    def restore_led(self, key):
-        if key > 3:
-            if key-4 < len(self.macros):
-                pixels[key_to_pixel_map(key)] = self.macros[key-4][0]
-            else:
-                pixels[key_to_pixel_map(key)] = 0
-        else:
-            pixels[key_to_pixel_map(key)] = (0, 0, 0)
-
-
 
 def clamp(num, min_value, max_value):
     num = max(min(num, max_value), min_value)
@@ -103,26 +63,6 @@ def collect():
     saved = gc.mem_free()
     gc.collect()
     print("garbage collected, " + str(gc.mem_free()) + " bytes free, " + str(gc.mem_free() - saved) + " saved")
-
-MODE_MAIN = 0
-MODE_LAYERSEL = 1
-MODE_DIM = 2
-MODE_SLEEP = 3
-
-def stateShiftTo(to):
-    global mode
-
-    if to == MODE_MAIN:
-        display.show(ui)
-    if to == MODE_LAYERSEL:
-        updateLayerList(layer_selector)
-        display.show(ui_layer_popup)
-
-    if to == MODE_DIM:
-        pass
-    if to == MODE_SLEEP:
-        pass
-    mode = to
 
 def loadError(message):
     global task_label
@@ -146,6 +86,10 @@ def loadError(message):
 
 # Release any resources currently in use for the displays
 displayio.release_displays()
+
+# Release key matrix LEDs
+pixels = neopixel.NeoPixel(board.D25, 16, brightness=0.4)
+pixels.fill((0, 0, 0))  # Begin with pixels off.
 
 spi = board.SPI()
 tft_cs = board.D6
@@ -209,6 +153,32 @@ def task_label(text):
     boot_splash[4].text = text
     print(text)
 
+# -----------------------------------
+# Initialize the state machine
+collect()
+task_label("Initializing state machine . . .")
+
+mode = 0
+
+MODE_MAIN = 0
+MODE_LAYERSEL = 1
+MODE_DIM = 2
+MODE_SLEEP = 3
+
+def stateShiftTo(to):
+    global mode
+
+    if to == MODE_MAIN:
+        display.show(ui)
+    if to == MODE_LAYERSEL:
+        updateLayerList(layer_selector)
+        display.show(ui_layer_popup)
+
+    if to == MODE_DIM:
+        pass
+    if to == MODE_SLEEP:
+        pass
+    mode = to
 
 # -----------------------------------
 # Initialize the rendering structure
@@ -233,12 +203,9 @@ ui.append(ui_layer_ind)
 ui.append(ui_volume_popup)
 
 # -----------------------------------
-# Render ui_background
+# Initialize key interface
 collect()
 task_label("Initializing key interface . . .")
-
-pixels = neopixel.NeoPixel(board.D25, 16, brightness=0.4)
-pixels.fill((0, 0, 0))  # Begin with pixels off.
 
 COLUMNS = 4
 ROWS = 4
@@ -520,6 +487,34 @@ def sleep_routine():
 # Load layers
 collect()
 task_label("Loading layers . . .")
+
+class Layer:
+    def __init__(self, appdata):
+        self.name = appdata['name']
+        self.macros = appdata['macros']
+
+    def switch(self):
+        ui_layer_ind[0].text = self.name
+        for i in range(12):
+            if i < len(self.macros):
+                pixels[key_to_pixel_map(i+4)] = self.macros[i][0]
+                _labels[i//4][i%4].text = self.macros[i][1]
+            else:
+                pixels[key_to_pixel_map(i+4)] = 0
+                _labels[i//4][i%4].text = ''
+
+        keyboard.release_all()
+        consumer_control.release()
+        mouse.release_all()
+
+    def restore_led(self, key):
+        if key > 3:
+            if key-4 < len(self.macros):
+                pixels[key_to_pixel_map(key)] = self.macros[key-4][0]
+            else:
+                pixels[key_to_pixel_map(key)] = 0
+        else:
+            pixels[key_to_pixel_map(key)] = (0, 0, 0)
 
 layers = []
 files = os.listdir(LAYERS_FOLDER)
