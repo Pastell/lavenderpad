@@ -561,77 +561,48 @@ layers[layer_index].switch()
 collect()
 task_label("Initializing encoder seesaw . . .")
 
-i2c = board.I2C()
-seesaw = seesaw.Seesaw(board.I2C(), addr=0x36)
+class RotaryEncoder:
+    def __init__(self, address):
+        self.seesaw = seesaw.Seesaw(board.I2C(), addr=address)
 
-seesaw_product = (seesaw.get_version() >> 16) & 0xFFFF
-print("Found product {}".format(seesaw_product))
-if seesaw_product != 4991:
-    print("Wrong firmware loaded? Expected 4991")
+        self.button = digitalio.DigitalIO(self.seesaw, 24)
+        self.button_held = False
 
-seesaw.pin_mode(24, seesaw.INPUT_PULLUP)
-button = digitalio.DigitalIO(seesaw, 24)
-button_held = False
+        # self.pixel = neopixel.NeoPixel(self.seesaw, 6, 1)
+        # self.pixel.brightness = 0.2
+        # self.pixel.fill = clr_white
 
-encoder = rotaryio.IncrementalEncoder(seesaw)
-last_position = None
+        self.encoder = rotaryio.IncrementalEncoder(self.seesaw)
+        self.encoder.position = clamp(self.encoder.position,0,100)
+        self.position = None
+        self.last_position = None
 
-# class RotaryEncoder:
-#     def __init__(self, pin_a, pin_b, start_val):
-#         pin_a.direction = digitalio.Direction.INPUT
-#         pin_b.direction = digitalio.Direction.INPUT
-#
-#         self.pin_a = pin_a
-#         self.pin_b = pin_b
-#
-#         print("pin a")
-#         print(str(pin_a.value))
-#         print("pin b")
-#         print(str(pin_b.value))
-#
-#         self.val = start_val
-#         self.previous_state = self.pin_a.value
-#     def read(self):
-#         self.current_state = self.pin_a.value
-#
-#         if self.current_state != self.previous_state:  # True when pulse has occured
-#             if self.pin_b.value != self.current_state:
-#                 self.val -= 1
-#                 print("Left" + str(self.val))
-#             else:
-#                 self.val += 1
-#                 print("Right" + str(self.val))
-#             self.val = clamp(self.val,0,100)
-#             self.previous_state = self.current_state
-#             return 1
-#         else:
-#             self.previous_state = self.current_state
-#             return 0
-#
-# vol_channels      = [50, 50, 50, 50]
-# vol_channels_mute = [0, 0, 0, 0]
+    def read(self):
+        self.position = -self.encoder.position
 
+        if self.position != self.last_position:
+            self.last_position = self.position
+            print("Position: {}".format(self.position))
 
-# r0_b = aw.get_pin(4)
-# r0_a = aw.get_pin(5)
-# r1_b = aw.get_pin(6)
-# r1_a = aw.get_pin(7)
-# r2_b = aw.get_pin(12)
-# r2_a = aw.get_pin(13)
-# r3_b = aw.get_pin(14)
-# r3_a = aw.get_pin(15)
+        if not self.button.value and not self.button_held:
+            self.button_held = True
+            #self.pixel.brightness = 0.5
+            print("Button pressed")
 
-# print(str(r0_b))
+        if self.button.value and self.button_held:
+            self.button_held = False
+            #self.pixel.brightness = 0.2
+            print("Button released")
 
-# encoders = [RotaryEncoder(aw.get_pin(4),aw.get_pin(5),50),
-#             RotaryEncoder(aw.get_pin(6),aw.get_pin(7),50),
-#             RotaryEncoder(aw.get_pin(12),aw.get_pin(13),50),
-#             RotaryEncoder(aw.get_pin(14),aw.get_pin(15),50)]
-#
-# encoders_last_pos = [encoders[0].position,
-#                      encoders[1].position,
-#                      encoders[2].position,
-#                      encoders[3].position]
+encoders = [
+RotaryEncoder(0x36),
+RotaryEncoder(0x37),
+RotaryEncoder(0x38),
+RotaryEncoder(0x39)
+]
+
+vol_channels      = [50, 50, 50, 50]
+vol_channels_mute = [False, False, False, False]
 
 # -----------------------------------
 # End boot routine
@@ -659,20 +630,17 @@ while True:
     if mode == MODE_MAIN:  # Normal UI
 
         # Encoders
+        for i in range(len(encoders)):
+            encoders[i].read()
+            if encoders[i].button_held == True:
+                vol_channels_mute[i] = not vol_channels_mute[i]
+            if vol_channels_mute[i] == False:
+                vol_channels[i] = clamp(encoders[i].position,0,100)
+            else:
+                vol_channels[i] = 0
+            _vol_bars[i].value = vol_channels[i]
 
-        position = -encoder.position
-
-        if position != last_position:
-            last_position = position
-            print("Position: {}".format(position))
-
-        if not button.value and not button_held:
-            button_held = True
-            print("Button pressed")
-
-        if button.value and button_held:
-            button_held = False
-            print("Button released")
+        print(str(vol_channels[0])+"|"+str(vol_channels[1])+"|"+str(vol_channels[2])+"|"+str(vol_channels[3]))
 
         # Keys
         key_event = keys.events.get()
