@@ -41,6 +41,7 @@ clr_white = 0xFFFFFF  # Absolute White
 clr_lavender = 0xB172C6  # Main UI Lavender
 clr_lavender_dark = 0x5D4266  # Darker lavender for backgrounds
 clr_red = 0xB70C00
+clr_gray = 0x777777
 
 sleep_timer = 0
 TIME_TO_DIM = 10000  # In whole seconds
@@ -561,8 +562,8 @@ layers[layer_index].switch()
 collect()
 task_label("Initializing encoder seesaw . . .")
 
-class RotaryEncoder:
-    def __init__(self, address):
+class VolKnob:
+    def __init__(self, address, initVol, initMute):
         self.seesaw = seesaw.Seesaw(board.I2C(), addr=address)
 
         self.button = digitalio.DigitalIO(self.seesaw, 24)
@@ -574,18 +575,22 @@ class RotaryEncoder:
 
         self.encoder = rotaryio.IncrementalEncoder(self.seesaw)
         self.encoder.position = clamp(self.encoder.position,0,100)
-        self.position = None
+        self.raw_position = -self.encoder.position
         self.last_position = None
 
-    def read(self):
-        self.position = -self.encoder.position
+        self.vol = initVol
+        self.mute = initMute
+        self.knob = 0
 
-        if self.position != self.last_position:
-            self.last_position = self.position
-            print("Position: {}".format(self.position))
+    def read_as_volume(self, multiplier):
+        self.last_position = self.raw_position
+        self.raw_position = -self.encoder.position
+
+        self.vol = clamp(self.vol - ((self.last_position-self.raw_position)*multiplier), 0, 100)
 
         if not self.button.value and not self.button_held:
             self.button_held = True
+            self.mute = not self.mute
             #self.pixel.brightness = 0.5
             print("Button pressed")
 
@@ -594,11 +599,17 @@ class RotaryEncoder:
             #self.pixel.brightness = 0.2
             print("Button released")
 
-encoders = [
-RotaryEncoder(0x36),
-RotaryEncoder(0x37),
-RotaryEncoder(0x38),
-RotaryEncoder(0x39)
+    def read_as_knob(self, multiplier):
+        self.last_position = self.raw_position
+        self.raw_position = -self.encoder.position
+
+        self.knob = ((self.raw_position-self.last_position)*multiplier)
+
+VolumeKnobs = [
+VolKnob(0x36, 24, False),
+VolKnob(0x37, 100, False),
+VolKnob(0x38, 100, False),
+VolKnob(0x39, 100, False)
 ]
 
 vol_channels      = [50, 50, 50, 50]
@@ -630,15 +641,16 @@ while True:
     if mode == MODE_MAIN:  # Normal UI
 
         # Encoders
-        for i in range(len(encoders)):
-            encoders[i].read()
-            if encoders[i].button_held == True:
-                vol_channels_mute[i] = not vol_channels_mute[i]
-            if vol_channels_mute[i] == False:
-                vol_channels[i] = clamp(encoders[i].position,0,100)
-            else:
+        for i in range(len(VolumeKnobs)):
+            VolumeKnobs[i].read_as_volume(2)
+
+            if VolumeKnobs[i].mute:
                 vol_channels[i] = 0
-            _vol_bars[i].value = vol_channels[i]
+                _vol_bars[i].bar_color = clr_gray
+            else:
+                vol_channels[i] = VolumeKnobs[i].vol
+                _vol_bars[i].bar_color = clr_white
+            _vol_bars[i].value = VolumeKnobs[i].vol
 
         print(str(vol_channels[0])+"|"+str(vol_channels[1])+"|"+str(vol_channels[2])+"|"+str(vol_channels[3]))
 
@@ -712,6 +724,10 @@ while True:
 
     if mode == MODE_LAYERSEL:
         key_event = keys.events.get()
+        VolumeKnobs[3].read_as_knob(1)
+        layer_selector = clamp((layer_selector - VolumeKnobs[3].knob), 0, (len(layers)-1))
+        updateLayerList(layer_selector)
+
         if key_event:
             print("mode: " + str(mode) + ", key event: " + str(key_event))
 
