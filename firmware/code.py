@@ -11,7 +11,6 @@ import displayio
 from adafruit_display_text import label
 import adafruit_ili9341
 from adafruit_displayio_layout.layouts.grid_layout import GridLayout
-import adafruit_74hc595
 import busio
 import digitalio
 import rotaryio
@@ -35,7 +34,7 @@ from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 from adafruit_hid.consumer_control import ConsumerControl
 from adafruit_hid.consumer_control_code import ConsumerControlCode
-import adafruit_aw9523
+from adafruit_seesaw import seesaw, rotaryio, digitalio
 
 # color defs
 clr_white = 0xFFFFFF  # Absolute White
@@ -113,13 +112,13 @@ boot_splash = displayio.Group()
 display.show(boot_splash)
 
 # Draw lavender background matte
-color_bitmap = displayio.Bitmap(320, 240, 2)
-color_palette = displayio.Palette(2)
-color_palette[0] = clr_lavender
-color_palette[1] = clr_red
-
-splash_matte = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
-boot_splash.append(splash_matte)  # [0]
+# color_bitmap = displayio.Bitmap(320, 240, 2)
+# color_palette = displayio.Palette(2)
+# color_palette[0] = clr_lavender
+# color_palette[1] = clr_red
+#
+# splash_matte = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
+# boot_splash.append(splash_matte)  # [0]
 
 # Draw 1px white border
 boot_splash.append(
@@ -137,20 +136,20 @@ boot_splash.append(bitmap_tg)  # [2]
 boot_splash.append(
     label.Label(terminalio.FONT, scale=2, x=240, y=40, text="made by pastellexists")
 )  # [3]
-boot_splash[3].anchor_point = (0.5, 0.5)
-boot_splash[3].anchored_position = (160, 150)
+boot_splash[2].anchor_point = (0.5, 0.5)
+boot_splash[2].anchored_position = (160, 150)
 
 # Draw task label
 
 boot_splash.append(
     label.Label(terminalio.FONT, scale=1, x=240, y=40, text="working . . .")
 )  # [4]
-boot_splash[4].anchor_point = (0.5, 0.5)
-boot_splash[4].anchored_position = (160, 200)
+boot_splash[3].anchor_point = (0.5, 0.5)
+boot_splash[3].anchored_position = (160, 200)
 
 
 def task_label(text):
-    boot_splash[4].text = text
+    boot_splash[3].text = text
     print(text)
 
 # -----------------------------------
@@ -230,9 +229,9 @@ collect()
 task_label("Rendering background . . .")
 
 
-ui_background.append(
-    displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
-)  # Background matte [0]
+# ui_background.append(
+#     displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
+# )  # Background matte [0]
 ui_background.append(
     Rect(0, 0, 320, 240, fill=clr_lavender, outline=clr_white, stroke=1)
 )  # 1px white border [1]
@@ -348,9 +347,9 @@ collect()
 task_label("Rendering layer selection popup . . .")
 
 
-ui_layer_popup.append(
-    displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
-)  # Background matte [0]
+# ui_layer_popup.append(
+#     displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
+# )  # Background matte [0]
 ui_layer_popup.append(
     Rect(0, 0, 320, 240, fill=clr_lavender, outline=clr_white, stroke=1)
 )  # 1px white border [1]
@@ -560,45 +559,57 @@ layers[layer_index].switch()
 # -----------------------------------
 # Intialize expansion board, rotary encoders
 collect()
-task_label("Initializing expansion board . . .")
+task_label("Initializing encoder seesaw . . .")
 
 i2c = board.I2C()
-aw = adafruit_aw9523.AW9523(i2c)
+seesaw = seesaw.Seesaw(board.I2C(), addr=0x36)
 
-class RotaryEncoder:
-    def __init__(self, pin_a, pin_b, start_val):
-        pin_a.direction = digitalio.Direction.INPUT
-        pin_b.direction = digitalio.Direction.INPUT
+seesaw_product = (seesaw.get_version() >> 16) & 0xFFFF
+print("Found product {}".format(seesaw_product))
+if seesaw_product != 4991:
+    print("Wrong firmware loaded? Expected 4991")
 
-        self.pin_a = pin_a
-        self.pin_b = pin_b
+seesaw.pin_mode(24, seesaw.INPUT_PULLUP)
+button = digitalio.DigitalIO(seesaw, 24)
+button_held = False
 
-        print("pin a")
-        print(str(pin_a.value))
-        print("pin b")
-        print(str(pin_b.value))
+encoder = rotaryio.IncrementalEncoder(seesaw)
+last_position = None
 
-        self.val = start_val
-        self.previous_state = self.pin_a.value
-    def read(self):
-        self.current_state = self.pin_a.value
-
-        if self.current_state != self.previous_state:  # True when pulse has occured
-            if self.pin_b.value != self.current_state:
-                self.val -= 1
-                print("Left" + str(self.val))
-            else:
-                self.val += 1
-                print("Right" + str(self.val))
-            self.val = clamp(self.val,0,100)
-            self.previous_state = self.current_state
-            return 1
-        else:
-            self.previous_state = self.current_state
-            return 0
-
-vol_channels      = [50, 50, 50, 50]
-vol_channels_mute = [0, 0, 0, 0]
+# class RotaryEncoder:
+#     def __init__(self, pin_a, pin_b, start_val):
+#         pin_a.direction = digitalio.Direction.INPUT
+#         pin_b.direction = digitalio.Direction.INPUT
+#
+#         self.pin_a = pin_a
+#         self.pin_b = pin_b
+#
+#         print("pin a")
+#         print(str(pin_a.value))
+#         print("pin b")
+#         print(str(pin_b.value))
+#
+#         self.val = start_val
+#         self.previous_state = self.pin_a.value
+#     def read(self):
+#         self.current_state = self.pin_a.value
+#
+#         if self.current_state != self.previous_state:  # True when pulse has occured
+#             if self.pin_b.value != self.current_state:
+#                 self.val -= 1
+#                 print("Left" + str(self.val))
+#             else:
+#                 self.val += 1
+#                 print("Right" + str(self.val))
+#             self.val = clamp(self.val,0,100)
+#             self.previous_state = self.current_state
+#             return 1
+#         else:
+#             self.previous_state = self.current_state
+#             return 0
+#
+# vol_channels      = [50, 50, 50, 50]
+# vol_channels_mute = [0, 0, 0, 0]
 
 
 # r0_b = aw.get_pin(4)
@@ -612,10 +623,10 @@ vol_channels_mute = [0, 0, 0, 0]
 
 # print(str(r0_b))
 
-encoders = [RotaryEncoder(aw.get_pin(4),aw.get_pin(5),50),
-            RotaryEncoder(aw.get_pin(6),aw.get_pin(7),50),
-            RotaryEncoder(aw.get_pin(12),aw.get_pin(13),50),
-            RotaryEncoder(aw.get_pin(14),aw.get_pin(15),50)]
+# encoders = [RotaryEncoder(aw.get_pin(4),aw.get_pin(5),50),
+#             RotaryEncoder(aw.get_pin(6),aw.get_pin(7),50),
+#             RotaryEncoder(aw.get_pin(12),aw.get_pin(13),50),
+#             RotaryEncoder(aw.get_pin(14),aw.get_pin(15),50)]
 #
 # encoders_last_pos = [encoders[0].position,
 #                      encoders[1].position,
@@ -642,20 +653,27 @@ collect()
 
 # ui_volume_popup.hidden = True
 ui_volume_popup.y = -60
-encoders_range = range(len(encoders))
-old_encoders = encoders
+# encoders_range = range(len(encoders))
+# old_encoders = encoders
 while True:
     if mode == MODE_MAIN:  # Normal UI
 
         # Encoders
-        old_encoders = encoders
-        for i in encoders_range:
-            if encoders[i].read() == 1:
-                if vol_channels_mute[i] == 0:
-                    vol_channels[i] = encoders[i].val
-                else:
-                    vol_channels[i] = 0
-                _vol_bars[i].value = vol_channels[i]
+
+        position = -encoder.position
+
+        if position != last_position:
+            last_position = position
+            print("Position: {}".format(position))
+
+        if not button.value and not button_held:
+            button_held = True
+            print("Button pressed")
+
+        if button.value and button_held:
+            button_held = False
+            print("Button released")
+
         # Keys
         key_event = keys.events.get()
         if key_event:

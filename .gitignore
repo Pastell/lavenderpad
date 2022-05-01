@@ -62,3 +62,5 @@ lib/neopixel.mpy
 .Trashes
 boot_out.txt
 README.md.bak
+*.mpy
+firmware/lib/adafruit_seesaw/__init__.py
