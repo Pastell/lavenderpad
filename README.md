@@ -37,9 +37,9 @@ The current prototype consists of the following, all sourced from Adafruit:
 1. Adafruit Feather RP2040                    = $11.95
 2. Adafruit 2.2" 18-bit TFT LCD breakout      = $24.95
 3. 4x PEC11-4215F-S24 rotary encoders         = $18.00
-4. Adafruit NeoKey 5x6 Ortholinear Snap-Apart = $29.95
-5. 16x Kalih Red mechanical switches          = $13.90 (four switches left over)
-6. Adafruit AW9523 GPIO Expander breakout     = $4.95
+4. 4x Adafruit I2C QT Rotary Encoder breakout = $23.80
+5. Adafruit NeoKey 5x6 Ortholinear Snap-Apart = $29.95
+6. 16x Kalih Red mechanical switches          = $13.90 (four switches left over)
 -------------------------------------------------------
-   Total, without tax or shipping             = $103.7
+   Total, without tax or shipping             = $122.55
 ```
